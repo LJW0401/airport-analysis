@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>机场耗时</title>
+  <style>
+    :root {
+      --bg: #E8E3D8;
+      --ink: #1C1B18;
+      --muted: #6F695F;
+      --line: #D4CDBF;
+      --paper: #E8E3D8;
+      --c-checkin: #2C3A4F;
+      --c-security: #A24B34;
+      --c-commute: #356352;
+      --c-buffer: #C49A4A;
+      --c-boarding: #1C1B18;
+      --c-taxi: #356352;
+      --c-claim: #C49A4A;
+      --fg-checkin: #F4F0E8;
+      --fg-security: #F4F0E8;
+      --fg-commute: #F4F0E8;
+      --fg-buffer: #1C1B18;
+      --fg-boarding: #F4F0E8;
+      --serif: "EB Garamond", "Noto Serif CJK SC", "Songti SC", serif;
+      --cn: "Noto Serif CJK SC", "Songti SC", serif;
+      --sans: "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-weight: 400;
+      line-height: 1.5;
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 72px 32px 88px;
+    }
+
+    .modes {
+      display: flex;
+      gap: 28px;
+      margin: 0 0 18px;
+    }
+
+    .modes button {
+      margin: 0;
+      padding: 0 0 6px;
+      border: none;
+      border-bottom: 1px solid transparent;
+      background: none;
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 13px;
+      letter-spacing: 0.18em;
+      cursor: pointer;
+    }
+
+    .modes button[aria-selected="true"] {
+      color: var(--ink);
+      border-bottom-color: var(--ink);
+    }
+
+    .modes button:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 4px;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: var(--cn);
+      font-size: 48px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      line-height: 1.15;
+    }
+
+    .lede {
+      max-width: 38em;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.75;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 40px;
+      margin-top: 48px;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+    }
+
+    select {
+      width: 100%;
+      margin: 0;
+      padding: 8px 28px 10px 0;
+      border: none;
+      border-bottom: 1px solid var(--ink);
+      border-radius: 0;
+      background-color: transparent;
+      background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+        linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+      background-position: calc(100% - 10px) 55%, calc(100% - 4px) 55%;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      color: var(--ink);
+      font-family: var(--cn);
+      font-size: 20px;
+      line-height: 1.4;
+      cursor: pointer;
+      appearance: none;
+    }
+
+    select:focus {
+      outline: none;
+      border-bottom-color: var(--c-security);
+    }
+
+    select:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 4px;
+    }
+
+    .hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-top: 56px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-label,
+    h2 {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+    }
+
+    .hero-num {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 8px 0 0;
+    }
+
+    .hero-num strong {
+      font-family: var(--serif);
+      font-size: 92px;
+      font-weight: 500;
+      font-variant-numeric: lining-nums tabular-nums;
+      letter-spacing: -0.03em;
+      line-height: 0.8;
+    }
+
+    .hero-unit {
+      font-size: 16px;
+      letter-spacing: 0.08em;
+    }
+
+    .route {
+      margin: 0;
+      font-family: var(--cn);
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-align: right;
+    }
+
+    .route span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+    }
+
+    section { margin-top: 48px; }
+
+    .note {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .bar {
+      display: flex;
+      gap: 3px;
+      height: 52px;
+      margin-top: 18px;
+    }
+
+
+    .seg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      overflow: hidden;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .seg[data-key="checkin"] { background: var(--c-checkin); color: var(--fg-checkin); }
+    .seg[data-key="security"] { background: var(--c-security); color: var(--fg-security); }
+    .seg[data-key="commute"] { background: var(--c-commute); color: var(--fg-commute); }
+    .seg[data-key="buffer"] { background: var(--c-buffer); color: var(--fg-buffer); }
+    .seg[data-key="boarding"] { background: var(--c-boarding); color: var(--fg-boarding); }
+    .seg[data-key="taxi"] { background: var(--c-taxi); color: var(--fg-commute); }
+    .seg[data-key="claim"] { background: var(--c-claim); color: var(--fg-buffer); }
+
+    .seg b {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 500;
+      font-variant-numeric: lining-nums tabular-nums;
+      line-height: 1;
+    }
+
+    .seg i {
+      margin-left: 2px;
+      font-style: normal;
+      font-size: 12px;
+    }
+
+    .seg.is-tight .seg-label { visibility: hidden; }
+
+    .names {
+      display: flex;
+      gap: 3px;
+      margin-top: 8px;
+    }
+
+    .names span {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .names span.is-tight { color: transparent; }
+
+    .scale {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 14px;
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 18px;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+
+    .scale small {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 56px;
+      align-items: center;
+      margin-top: 22px;
+    }
+
+    .pie-wrap { position: relative; }
+
+    svg.pie {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+
+    .slice { cursor: pointer; transition: opacity 0.2s ease; }
+
+    .pie text {
+      font-family: var(--serif);
+      font-size: 15px;
+      font-variant-numeric: lining-nums;
+      pointer-events: none;
+    }
+
+    .stats { margin: 0; padding: 0; list-style: none; }
+
+    .stat {
+      display: grid;
+      grid-template-columns: 10px 4.5em 1fr auto auto;
+      gap: 14px;
+      align-items: baseline;
+      padding: 13px 0;
+      border-top: 1px solid var(--line);
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .stat:last-child { border-bottom: 1px solid var(--line); }
+
+    .swatch {
+      width: 10px;
+      height: 10px;
+      transform: translateY(1px);
+    }
+
+    .swatch.checkin { background: var(--c-checkin); }
+    .swatch.security { background: var(--c-security); }
+    .swatch.commute { background: var(--c-commute); }
+    .swatch.buffer { background: var(--c-buffer); }
+    .swatch.boarding { background: var(--c-boarding); }
+    .swatch.taxi { background: var(--c-taxi); }
+    .swatch.claim { background: var(--c-claim); }
+
+    .stat .name { font-size: 15px; }
+
+    .stat .hint {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stat .mins,
+    .stat .pct {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-variant-numeric: lining-nums tabular-nums;
+      text-align: right;
+    }
+
+    .stat .pct {
+      min-width: 3.2em;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    main.is-dimming [data-key] { opacity: 0.42; }
+    main.is-dimming [data-key].is-on { opacity: 1; }
+
+    .warn {
+      margin: 16px 0 0;
+      color: var(--c-security);
+      font-size: 14px;
+    }
+
+    .status {
+      margin-top: 48px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    footer {
+      margin-top: 64px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+
+    @media (max-width: 760px) {
+      main { padding: 40px 20px 64px; }
+      h1 { font-size: 36px; }
+      .controls,
+      .split { grid-template-columns: 1fr; }
+      .hero { flex-direction: column; align-items: flex-start; }
+      .route { text-align: left; }
+      .hero-num strong { font-size: 72px; }
+      .seg b { font-size: 16px; }
+      .stat { grid-template-columns: 10px 3.5em 1fr auto; }
+      .stat .hint { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .seg, .slice, .stat { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main id="app">
+    <div class="modes" role="tablist" aria-label="分析类型">
+      <button type="button" id="mode-depart" role="tab" aria-selected="true">出发</button>
+      <button type="button" id="mode-arrive" role="tab" aria-selected="false">到达</button>
+    </div>
+    <h1>机场耗时</h1>
+    <p class="lede" id="lede">选择机场和时间，查看这一次出发。长条从到达机场画到起飞。</p>
+
+    <div class="controls">
+      <div class="field">
+        <label for="airport">机场</label>
+        <select id="airport"></select>
+      </div>
+      <div class="field">
+        <label for="trip">时间</label>
+        <select id="trip"></select>
+      </div>
+    </div>
+
+    <div id="view" hidden>
+      <div class="hero">
+        <div>
+          <p class="hero-label" id="hero-label">出发耗时</p>
+          <p class="hero-num"><strong id="total"></strong><span class="hero-unit">分钟</span></p>
+        </div>
+        <p class="route" id="route"></p>
+      </div>
+
+      <section>
+        <h2>时间分布</h2>
+        <p class="note" id="rule"></p>
+        <div class="bar" id="bar"></div>
+        <div class="names" id="names"></div>
+        <div class="scale" id="scale"></div>
+        <p class="warn" id="warn" hidden></p>
+      </section>
+
+      <section>
+        <h2>占比</h2>
+        <div class="split">
+          <div class="pie-wrap">
+            <svg class="pie" id="pie" viewBox="0 0 200 200" role="img"></svg>
+          </div>
+          <ul class="stats" id="stats"></ul>
+        </div>
+      </section>
+
+    </div>
+
+    <p class="status" id="status" hidden></p>
+    <footer>记录在 data/records.json。同一机场的出发和到达分开看，时间用 24 小时制，例如 06:12。</footer>
+  </main>
+
+  <script>
+    const PHASES = [
+      { key: "checkin", name: "值机", hint: "到达机场 → 完成托运" },
+      { key: "security", name: "安检", hint: "完成托运 → 过完安检" },
+      { key: "commute", name: "通勤", hint: "过完安检 → 到达登机口" },
+      { key: "buffer", name: "冗余", hint: "到达登机口 → 登机" },
+      { key: "boarding", name: "登机", hint: "登机 → 起飞" }
+    ];
+
+    const ARRIVAL_PHASES = [
+      { key: "taxi", name: "滑行", hint: "落地 → 停靠" },
+      { key: "claim", name: "取行李", hint: "停靠 → 拿到行李" }
+    ];
+
+    const FG = {
+      checkin: "#F4F0E8",
+      security: "#F4F0E8",
+      commute: "#F4F0E8",
+      buffer: "#1C1B18",
+      boarding: "#F4F0E8",
+      taxi: "#F4F0E8",
+      claim: "#1C1B18"
+    };
+
+    const app = document.getElementById("app");
+    const airportSelect = document.getElementById("airport");
+    const tripSelect = document.getElementById("trip");
+    const view = document.getElementById("view");
+    const statusEl = document.getElementById("status");
+
+    let trips = [];
+    let mode = "depart";
+
+    function parseClock(value) {
+      const match = /^(\d{1,2}):(\d{2})$/.exec(String(value ?? "").trim());
+      if (!match) return NaN;
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (hour > 23 || minute > 59) return NaN;
+      return hour * 60 + minute;
+    }
+
+    function chain(clocks) {
+      const absolute = [clocks[0]];
+      for (let i = 1; i < clocks.length; i += 1) {
+        let next = clocks[i];
+        if (next < absolute[i - 1]) next += 1440;
+        if (next < absolute[i - 1] || next - absolute[i - 1] > 12 * 60) return null;
+        absolute.push(next);
+      }
+      return absolute;
+    }
+
+    function formatClock(absolute, origin) {
+      const day = Math.floor(absolute / 1440) - Math.floor(origin / 1440);
+      const minuteOfDay = ((absolute % 1440) + 1440) % 1440;
+      const text = String(Math.floor(minuteOfDay / 60)).padStart(2, "0")
+        + ":"
+        + String(minuteOfDay % 60).padStart(2, "0");
+      return day > 0 ? "次日 " + text : text;
+    }
+
+    function shares(minutes, total) {
+      const exact = minutes.map((minute) => (minute / total) * 100);
+      const base = exact.map((value) => Math.floor(value));
+      let left = 100 - base.reduce((sum, value) => sum + value, 0);
+      const order = exact
+        .map((value, index) => ({ index, frac: value - Math.floor(value) }))
+        .sort((a, b) => b.frac - a.frac);
+      for (let i = 0; i < left; i += 1) base[order[i].index] += 1;
+      return base;
+    }
+
+    function analyzeDeparture(departure) {
+      const fields = ["到达机场", "完成托运", "过完安检", "到达登机口", "起飞"];
+      const clocks = fields.map((field) => parseClock(departure[field]));
+      if (clocks.some((value) => Number.isNaN(value))) {
+        return { error: "出发时间需要写成 HH:mm。" };
+      }
+      const absolute = chain(clocks);
+      if (!absolute) return { error: "出发时间的先后顺序无法衔接，请检查是否填反。" };
+
+      const [arrive, checkIn, security, gate, takeoff] = absolute;
+      const boardingAt = takeoff - 40;
+      if (boardingAt < arrive) {
+        return { error: "从到达机场到起飞不足 40 分钟，无法按登机时间点分段。" };
+      }
+
+      const minutes = [
+        checkIn - arrive,
+        security - checkIn,
+        gate - security,
+        boardingAt - gate,
+        takeoff - boardingAt
+      ];
+      const total = takeoff - arrive;
+      const phases = PHASES.map((phase, index) => ({
+        ...phase,
+        minutes: minutes[index],
+        pct: 0
+      }));
+      if (minutes.every((minute) => minute >= 0)) {
+        const pct = shares(minutes, total);
+        phases.forEach((phase, index) => { phase.pct = pct[index]; });
+      }
+
+      return {
+        total,
+        phases,
+        start: arrive,
+        end: takeoff,
+        origin: arrive,
+        startLabel: "到达机场",
+        endLabel: "起飞",
+        rule: "登机时间点 " + formatClock(boardingAt, arrive) + "，取起飞前 40 分钟。到达登机口到这个时刻是冗余，之后到起飞是登机。",
+        lateGate: boardingAt - gate < 0 ? gate - boardingAt : 0
+      };
+    }
+
+    function analyzeArrival(arrival) {
+      if (!arrival) return { error: "这条记录没有到达时间。" };
+      const fields = ["落地", "停靠", "拿到行李"];
+      const clocks = fields.map((field) => parseClock(arrival[field]));
+      if (clocks.some((value) => Number.isNaN(value))) {
+        return { error: "到达时间需要写成 HH:mm。" };
+      }
+      const absolute = chain(clocks);
+      if (!absolute) return { error: "到达时间的先后顺序无法衔接，请检查是否填反。" };
+      const [landed, docked, baggage] = absolute;
+      const minutes = [docked - landed, baggage - docked];
+      const total = baggage - landed;
+      if (total <= 0) return { error: "从落地到拿到行李没有耗时。" };
+      const phases = ARRIVAL_PHASES.map((phase, index) => ({
+        ...phase,
+        minutes: minutes[index],
+        pct: 0
+      }));
+      const pct = shares(minutes, total);
+      phases.forEach((phase, index) => { phase.pct = pct[index]; });
+      return {
+        total,
+        phases,
+        start: landed,
+        end: baggage,
+        origin: landed,
+        startLabel: "落地",
+        endLabel: "拿到行李",
+        rule: "长条从落地画到拿到行李。落地到停靠是滑行，停靠到拿到行李是取行李。",
+        lateGate: 0
+      };
+    }
+
+    function eventOf(trip) {
+      const side = mode === "arrive" ? trip.rec["到达"] : trip.rec["出发"];
+      const timeField = mode === "arrive" ? "落地" : "起飞";
+      return {
+        airport: side["机场"],
+        date: side["日期"],
+        time: side[timeField]
+      };
+    }
+
+    function tripLabel(trip) {
+      const event = eventOf(trip);
+      return event.date + " · " + event.time;
+    }
+
+    function airports() {
+      const names = new Set();
+      trips.forEach((trip) => {
+        if (trip.rec["出发"]?.["机场"]) names.add(trip.rec["出发"]["机场"]);
+        if (trip.rec["到达"]?.["机场"]) names.add(trip.rec["到达"]["机场"]);
+      });
+      return [...names].sort((a, b) => a.localeCompare(b, "zh-CN"));
+    }
+
+    function tripsFor(airport) {
+      return trips
+        .filter((trip) => {
+          const side = mode === "arrive" ? trip.rec["到达"] : trip.rec["出发"];
+          return side && side["机场"] === airport;
+        })
+        .sort((a, b) => tripLabel(a).localeCompare(tripLabel(b)));
+    }
+
+    function fillAirports() {
+      airportSelect.innerHTML = "";
+      airports().forEach((airport) => {
+        const option = document.createElement("option");
+        option.value = airport;
+        option.textContent = airport;
+        airportSelect.appendChild(option);
+      });
+    }
+
+    function fillTrips() {
+      const list = tripsFor(airportSelect.value);
+      tripSelect.innerHTML = "";
+      list.forEach((trip) => {
+        const option = document.createElement("option");
+        option.value = String(trip.index);
+        option.textContent = tripLabel(trip);
+        tripSelect.appendChild(option);
+      });
+      if (list.length) tripSelect.value = String(list[list.length - 1].index);
+    }
+
+    function arc(cx, cy, radius, start, end) {
+      const x1 = cx + radius * Math.cos(start);
+      const y1 = cy + radius * Math.sin(start);
+      const x2 = cx + radius * Math.cos(end);
+      const y2 = cy + radius * Math.sin(end);
+      const large = end - start > Math.PI ? 1 : 0;
+      return "M " + cx + " " + cy
+        + " L " + x1 + " " + y1
+        + " A " + radius + " " + radius + " 0 " + large + " 1 " + x2 + " " + y2
+        + " Z";
+    }
+
+    function renderPie(phases) {
+      const svg = document.getElementById("pie");
+      svg.innerHTML = "";
+      const drawable = phases.filter((phase) => phase.minutes > 0);
+      const sum = drawable.reduce((totalMinutes, phase) => totalMinutes + phase.minutes, 0);
+      let angle = -Math.PI / 2;
+      const summary = drawable.map((phase) => phase.name + " " + phase.pct + "%").join("，");
+      svg.setAttribute("aria-label", "各段占比：" + summary);
+
+      drawable.forEach((phase) => {
+        const sweep = (phase.minutes / sum) * Math.PI * 2;
+        const start = angle;
+        const end = angle + sweep;
+        angle = end;
+
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.dataset.key = phase.key;
+        group.classList.add("slice");
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", sweep >= Math.PI * 2 - 0.001
+          ? "M 100 4 A 96 96 0 1 1 99.99 4 Z"
+          : arc(100, 100, 96, start, end));
+        path.setAttribute("fill", "var(--c-" + phase.key + ")");
+        path.setAttribute("stroke", "var(--paper)");
+        path.setAttribute("stroke-width", "1.5");
+        group.appendChild(path);
+
+        if (sweep >= 0.7) {
+          const mid = (start + end) / 2;
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("x", String(100 + Math.cos(mid) * 58));
+          text.setAttribute("y", String(100 + Math.sin(mid) * 58));
+          text.setAttribute("text-anchor", "middle");
+          text.setAttribute("dominant-baseline", "middle");
+          text.setAttribute("fill", FG[phase.key]);
+          text.textContent = phase.pct + "%";
+          group.appendChild(text);
+        }
+
+        svg.appendChild(group);
+      });
+    }
+
+    function renderStats(phases) {
+      const list = document.getElementById("stats");
+      list.innerHTML = "";
+      phases.forEach((phase) => {
+        const item = document.createElement("li");
+        item.className = "stat";
+        item.dataset.key = phase.key;
+        const minuteText = phase.minutes < 0 ? phase.minutes + " 分钟" : phase.minutes + " 分钟";
+        item.innerHTML = ""
+          + '<i class="swatch ' + phase.key + '"></i>'
+          + '<span class="name">' + phase.name + "</span>"
+          + '<span class="hint">' + phase.hint + "</span>"
+          + '<span class="mins">' + minuteText + "</span>"
+          + '<span class="pct">' + (phase.minutes < 0 ? "—" : phase.pct + "%") + "</span>";
+        list.appendChild(item);
+      });
+    }
+
+    function fitLabels() {
+      const bar = document.getElementById("bar");
+      const names = document.getElementById("names");
+      const segs = [...bar.querySelectorAll(".seg")];
+      const captions = [...names.querySelectorAll("span")];
+      segs.forEach((seg, index) => {
+        const label = seg.querySelector(".seg-label");
+        const caption = captions[index];
+        if (!label || !caption) return;
+        const minutesFit = label.scrollWidth <= seg.clientWidth - 8;
+        seg.classList.toggle("is-tight", !minutesFit);
+        caption.textContent = minutesFit ? caption.dataset.name : caption.dataset.minutes + "分";
+        caption.classList.toggle("is-tight", caption.scrollWidth > caption.clientWidth + 1);
+      });
+    }
+
+    function renderBar(model) {
+      const bar = document.getElementById("bar");
+      const names = document.getElementById("names");
+      bar.innerHTML = "";
+      names.innerHTML = "";
+      const drawable = model.phases.filter((phase) => phase.minutes > 0);
+      const aria = drawable.map((phase) => phase.name + " " + phase.minutes + " 分钟").join("，");
+      bar.setAttribute("role", "img");
+      bar.setAttribute("aria-label", "从" + model.startLabel + "到" + model.endLabel + "：" + aria);
+
+      model.phases.forEach((phase) => {
+        if (phase.minutes <= 0) return;
+        const seg = document.createElement("div");
+        seg.className = "seg";
+        seg.dataset.key = phase.key;
+        seg.style.flex = phase.minutes + " 1 0";
+        seg.title = phase.name + " " + phase.minutes + " 分钟";
+        seg.innerHTML = '<span class="seg-label"><b>' + phase.minutes + "</b><i>分</i></span>";
+        bar.appendChild(seg);
+
+        const name = document.createElement("span");
+        name.style.flex = phase.minutes + " 1 0";
+        name.dataset.name = phase.name;
+        name.dataset.minutes = String(phase.minutes);
+        name.textContent = phase.name;
+        names.appendChild(name);
+      });
+
+      requestAnimationFrame(fitLabels);
+
+      document.getElementById("scale").innerHTML = ""
+        + "<span>" + formatClock(model.start, model.origin) + "<small>" + model.startLabel + "</small></span>"
+        + "<span>" + formatClock(model.end, model.origin) + "<small>" + model.endLabel + "</small></span>";
+    }
+
+    function render() {
+      const trip = trips.find((item) => String(item.index) === tripSelect.value);
+      if (!trip) {
+        view.hidden = true;
+        statusEl.hidden = false;
+        statusEl.textContent = mode === "depart" ? "这个机场还没有出发记录。" : "这个机场还没有到达记录。";
+        return;
+      }
+      const record = trip.rec;
+      const model = mode === "depart"
+        ? analyzeDeparture(record["出发"])
+        : analyzeArrival(record["到达"]);
+
+      if (model.error) {
+        view.hidden = true;
+        statusEl.hidden = false;
+        statusEl.textContent = model.error;
+        return;
+      }
+
+      statusEl.hidden = true;
+      view.hidden = false;
+      document.getElementById("hero-label").textContent = mode === "depart" ? "出发耗时" : "到达耗时";
+      document.getElementById("total").textContent = String(model.total);
+      const event = eventOf(trip);
+      document.getElementById("route").innerHTML = event.airport + "<span>" + event.date + " · " + event.time + "</span>";
+      document.getElementById("rule").textContent = model.rule;
+
+      const warn = document.getElementById("warn");
+      if (model.lateGate) {
+        warn.hidden = false;
+        warn.textContent = "到达登机口比登机时间点晚了 " + model.lateGate + " 分钟，冗余为负，这一段不画进长条和饼图。";
+      } else {
+        warn.hidden = true;
+        warn.textContent = "";
+      }
+
+      renderBar(model);
+      renderPie(model.phases);
+      renderStats(model.phases);
+      setActive("");
+    }
+
+    function paintMode() {
+      document.getElementById("mode-depart").setAttribute("aria-selected", String(mode === "depart"));
+      document.getElementById("mode-arrive").setAttribute("aria-selected", String(mode === "arrive"));
+      document.getElementById("lede").textContent = mode === "depart"
+        ? "选择机场和时间，查看这一次出发。长条从到达机场画到起飞。"
+        : "选择机场和时间，查看这一次到达。长条从落地画到拿到行李。";
+    }
+
+    function setMode(next) {
+      mode = next;
+      paintMode();
+      fillTrips();
+      render();
+    }
+
+    function setActive(key) {
+      app.classList.toggle("is-dimming", Boolean(key));
+      app.querySelectorAll("[data-key]").forEach((node) => {
+        node.classList.toggle("is-on", Boolean(key) && node.dataset.key === key);
+      });
+    }
+
+    app.addEventListener("mouseover", (event) => {
+      const node = event.target.closest("[data-key]");
+      setActive(node ? node.dataset.key : "");
+    });
+    app.addEventListener("mouseleave", () => setActive(""));
+    app.addEventListener("focusin", (event) => {
+      const node = event.target.closest("[data-key]");
+      if (node) setActive(node.dataset.key);
+    });
+    app.addEventListener("focusout", () => setActive(""));
+
+    window.addEventListener("resize", fitLabels);
+
+    document.getElementById("mode-depart").addEventListener("click", () => setMode("depart"));
+    document.getElementById("mode-arrive").addEventListener("click", () => setMode("arrive"));
+
+    airportSelect.addEventListener("change", () => {
+      fillTrips();
+      render();
+    });
+    tripSelect.addEventListener("change", render);
+
+    fetch("data/records.json")
+      .then((response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.json();
+      })
+      .then((data) => {
+        const records = Array.isArray(data.records) ? data.records : [];
+        trips = records
+          .map((rec, index) => ({ rec, index }))
+          .filter((trip) => trip.rec && trip.rec["出发"] && trip.rec["出发"]["机场"]);
+        if (!trips.length) throw new Error("empty");
+        const params = new URLSearchParams(location.search);
+        if (params.get("mode") === "arrive") mode = "arrive";
+        paintMode();
+        fillAirports();
+        if (params.get("airport") && airports().includes(params.get("airport"))) {
+          airportSelect.value = params.get("airport");
+        }
+        fillTrips();
+        if (params.get("trip") && [...tripSelect.options].some((option) => option.value === params.get("trip"))) {
+          tripSelect.value = params.get("trip");
+        }
+        render();
+      })
+      .catch(() => {
+        view.hidden = true;
+        statusEl.hidden = false;
+        statusEl.textContent = "没有读到 data/records.json。请在项目目录执行 python3 -m http.server，再用浏览器打开页面。";
+      });
+  </script>
+</body>
+</html>
